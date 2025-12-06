@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>BioStream Monitor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        body { background-color: #121212; color: white; font-family: 'Segoe UI', sans-serif; text-align: center; }
+        .dashboard { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; }
+        .card { background: #1e1e1e; padding: 20px; border-radius: 15px; width: 200px; border-left: 5px solid #555; }
+        .card h2 { font-size: 3em; margin: 5px 0; }
+        .hr { border-color: #ff4081; } .hr h2 { color: #ff4081; }
+        .spo2 { border-color: #00e5ff; } .spo2 h2 { color: #00e5ff; }
+        .temp { border-color: #ffeb3b; } .temp h2 { color: #ffeb3b; }
+        .motion { border-color: #76ff03; } .motion h2 { color: #76ff03; font-size: 1.5em; }
+        #graph-wrapper { max-width: 1000px; margin: 0 auto; background: #1e1e1e; padding: 10px; border-radius: 15px; }
+    </style>
+</head>
+<body>
+    <h1>BIOSTREAM MONITOR</h1>
+    <div style="margin-bottom: 20px;">STATUS: <span id="status-text" style="color: yellow;">WAITING...</span></div>
+
+    <div class="dashboard">
+        <div class="card hr"><p>Heart Rate</p><h2 id="hr">--</h2><p>BPM</p></div>
+        <div class="card temp"><p>Temperature</p><h2 id="temp">--</h2><p>Celsius</p></div>
+        <div class="card spo2"><p>SpO2 Level</p><h2 id="spo2">--</h2><p>%</p></div>
+        <div class="card motion"><p>Body Motion</p><h2 id="motion">--</h2><p>Accel X/Y</p></div>
+    </div>
+
+    <div id="graph-wrapper"><div id="chart"></div></div>
+
+    <script>
+        var socket = io();
+        var timeData=[], hrData=[], spo2Data=[];
+
+        var layout = {
+            title: 'Live Vitals', paper_bgcolor: '#1e1e1e', plot_bgcolor: '#1e1e1e',
+            font: { color: '#ccc' }, xaxis: { showgrid: false },
+            yaxis: { title: 'HR', gridcolor: '#333', range: [50, 130] },
+            yaxis2: { title: 'SpO2', overlaying: 'y', side: 'right', range: [80, 100], gridcolor: '#333' }
+        };
+        Plotly.newPlot('chart', [{ y:[], name:'HR', line:{color:'#ff4081'} }, { y:[], name:'SpO2', yaxis:'y2', line:{color:'#00e5ff'} }], layout);
+
+        socket.on('update_data', function(data) {
+            document.getElementById('hr').innerText = data.hr;
+            document.getElementById('temp').innerText = data.temp;
+            document.getElementById('spo2').innerText = data.spo2;
+            
+            // Update Motion Text
+            document.getElementById('motion').innerText = 
+                "X: " + data.ax.toFixed(2) + "\nY: " + data.ay.toFixed(2);
+
+            var statusEl = document.getElementById('status-text');
+            statusEl.innerText = data.status;
+            statusEl.style.color = data.status.includes("Live") ? "#00e5ff" : "orange";
+
+            var timeString = new Date().toLocaleTimeString();
+            timeData.push(timeString); hrData.push(data.hr); spo2Data.push(data.spo2);
+            if(timeData.length > 30) { timeData.shift(); hrData.shift(); spo2Data.shift(); }
+            Plotly.update('chart', { x:[timeData, timeData], y:[hrData, spo2Data] }, {}, [0, 1]);
+        });
+    </script>
+</body>
+</html>
